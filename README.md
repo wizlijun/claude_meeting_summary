@@ -1,15 +1,14 @@
 # 会议录音转录工具
 
-基于 WhisperX + pyannote-audio 实现的会议录音转录工具，支持多说话人识别和声纹增强。
+基于 WhisperX + Resemblyzer 实现的会议录音转录工具，支持声纹增强识别。
 
 ## 功能特点
 
 - **语音转录**: 使用 WhisperX 进行高质量语音转录
-- **说话人识别**: 基于 pyannote-audio 进行说话人分离
-- **声纹增强**: 使用 Resemblyzer 提升说话人识别精度
+- **声纹识别**: 使用 Resemblyzer 进行说话人声纹识别
 - **多种输出格式**: 支持 TXT、JSON、SRT 格式输出
 - **说话人管理**: 支持预设说话人声纹样本
-- **GPU 加速**: 支持 CUDA 和 MPS 加速
+- **GPU 加速**: 支持 CUDA 和 MPS 加速（默认使用 CPU）
 
 ## 环境要求
 
@@ -36,12 +35,14 @@ python meeting_transcription.py input.m4a
 python meeting_transcription.py input.m4a \
     --output output.srt \
     --format srt \
-    --model base \
-    --language auto \
-    --min-speakers 2 \
-    --max-speakers 6 \
-    --use-resemblyzer \
-    --hf-token YOUR_HF_TOKEN
+    --model medium \
+    --language auto
+```
+
+### 启用 GPU 加速
+
+```bash
+python meeting_transcription.py input.m4a --gpu
 ```
 
 ### 参数说明
@@ -49,13 +50,10 @@ python meeting_transcription.py input.m4a \
 - `audio_file`: 音频文件路径（必需）
 - `-o, --output`: 输出文件路径（可选，默认为输入文件名+扩展名）
 - `-f, --format`: 输出格式（txt/json/srt，默认：srt）
-- `-m, --model`: WhisperX 模型大小（tiny/base/small/medium/large-v2/large-v3，默认：base）
+- `-m, --model`: WhisperX 模型大小（tiny/base/small/medium/large-v2/large-v3，默认：medium）
 - `-l, --language`: 语言代码（默认：auto 自动检测）
-- `--no-gpu`: 禁用 GPU 加速
-- `--min-speakers`: 最小说话人数量
-- `--max-speakers`: 最大说话人数量
-- `--hf-token`: Hugging Face token（用于访问 pyannote 模型）
-- `--use-resemblyzer`: 启用声纹增强功能
+- `--gpu`: 启用 GPU 加速（默认使用 CPU）
+- `--no-resemblyzer`: 禁用声纹增强功能（默认启用）
 
 ## 说话人管理
 
@@ -118,30 +116,22 @@ Qi: 谢谢主持人，我来介绍一下项目进展。
 
 ## 高级功能
 
-### 声纹增强
+### 声纹识别
 
-使用 `--use-resemblyzer` 参数启用声纹增强功能：
+声纹识别功能默认启用。如需禁用，使用 `--no-resemblyzer` 参数：
 
 ```bash
-python meeting_transcription.py input.m4a --use-resemblyzer
+python meeting_transcription.py input.m4a --no-resemblyzer
 ```
 
-声纹增强会：
-- 基于预设的说话人样本进行更精确的识别
+声纹识别会：
+- 基于预设的说话人样本进行精确的识别
 - 为每个片段提供置信度评分
 - 显示识别方法统计信息
 
-### Hugging Face Token
-
-pyannote-audio 模型需要 Hugging Face token：
-
-1. 访问 https://huggingface.co/pyannote/speaker-diarization-3.1
-2. 接受使用条款
-3. 获取 token 并使用 `--hf-token` 参数
-
 ## 性能优化
 
-- 使用 GPU 加速：确保安装 CUDA 或 MPS 支持
+- 使用 GPU 加速：添加 `--gpu` 参数并确保安装 CUDA 或 MPS 支持
 - 选择合适的模型大小：`tiny` 速度快但精度低，`large-v3` 精度高但速度慢
 - 调整批处理大小：根据显存大小调整（在代码中修改 `batch_size` 参数）
 
@@ -150,14 +140,10 @@ pyannote-audio 模型需要 Hugging Face token：
 ### 常见问题
 
 1. **GPU 内存不足**
-   - 使用 `--no-gpu` 参数切换到 CPU 模式
+   - 默认使用 CPU 模式，如需 GPU 加速请使用 `--gpu` 参数
    - 选择更小的模型（如 `tiny` 或 `base`）
 
-2. **pyannote 模型加载失败**
-   - 确保提供有效的 Hugging Face token
-   - 检查网络连接
-
-3. **声纹增强失败**
+2. **声纹识别失败**
    - 确保 `speaker/` 目录存在且包含音频样本
    - 检查 Resemblyzer 库是否正确安装
 
@@ -179,5 +165,4 @@ pip install -r requirements.txt
 
 本项目使用开源许可证。使用的主要依赖库：
 - WhisperX: Apache 2.0
-- pyannote-audio: MIT
 - Resemblyzer: MIT

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-会议录音转录工具 - 基于WhisperX + pyannote-audio实现
+会议录音转录工具 - 基于WhisperX + Resemblyzer实现
 将会议录音转换为带说话人标识的SRT字幕文件
-支持多说话人识别和声纹增强
+支持声纹增强识别
 """
 
 import whisperx
@@ -31,7 +31,7 @@ except ImportError:
     print("警告: 会议声纹增强功能不可用")
 
 class MeetingTranscriber:
-    def __init__(self, model_size="base", use_gpu=True, language="auto", use_resemblyzer=False):
+    def __init__(self, model_size="base", use_gpu=False, language="auto", use_resemblyzer=False):
         """
         初始化会议录音转录系统
         
@@ -78,8 +78,6 @@ class MeetingTranscriber:
         self.align_model = None
         self.metadata = None
         
-        # 初始化说话人分离模型（稍后加载）
-        self.diarize_model = None
         
         # 初始化说话人管理器
         if SPEAKER_MANAGER_AVAILABLE:
@@ -121,20 +119,6 @@ class MeetingTranscriber:
                 self.align_model = None
                 self.metadata = None
     
-    def load_diarize_model(self, hf_token=None):
-        """加载说话人分离模型"""
-        if self.diarize_model is None:
-            print("正在加载pyannote说话人分离模型...")
-            try:
-                self.diarize_model = whisperx.DiarizationPipeline(
-                    use_auth_token=hf_token, 
-                    device=self.device
-                )
-                print("✓ 说话人分离模型加载成功")
-            except Exception as e:
-                print(f"⚠ 说话人分离模型加载失败: {e}")
-                print("提示: 可能需要Hugging Face token来访问pyannote模型")
-                self.diarize_model = None
     
     def transcribe_audio(self, audio_path):
         """
@@ -203,85 +187,7 @@ class MeetingTranscriber:
             print(f"⚠ 时间对齐失败: {e}")
             return result
     
-    def diarize_speakers(self, audio_path, min_speakers=None, max_speakers=None, hf_token=None):
-        """
-        进行说话人分离
-        
-        Args:
-            audio_path (str): 音频文件路径
-            min_speakers (int): 最小说话人数量
-            max_speakers (int): 最大说话人数量
-            hf_token (str): Hugging Face token
-            
-        Returns:
-            object: 说话人分离结果
-        """
-        # 加载说话人分离模型
-        self.load_diarize_model(hf_token)
-        
-        if self.diarize_model is None:
-            print("⚠ 说话人分离不可用")
-            return None
-        
-        print("正在进行说话人分离...")
-        try:
-            # 加载音频
-            audio = whisperx.load_audio(audio_path)
-            
-            # 进行说话人分离
-            diarize_segments = self.diarize_model(
-                audio, 
-                min_speakers=min_speakers, 
-                max_speakers=max_speakers
-            )
-            
-            print("✓ 说话人分离完成")
-            return diarize_segments
-            
-        except Exception as e:
-            print(f"⚠ 说话人分离失败: {e}")
-            return None
     
-    def assign_speakers_to_segments(self, result, diarize_segments):
-        """
-        将说话人信息分配给转录片段
-        
-        Args:
-            result (dict): 转录结果
-            diarize_segments: 说话人分离结果
-            
-        Returns:
-            dict: 带有说话人信息的转录结果
-        """
-        if diarize_segments is None:
-            print("⚠ 无说话人分离结果，使用默认说话人标签")
-            # 为所有片段分配默认说话人
-            for segment in result["segments"]:
-                segment["speaker"] = "SPEAKER_00"
-            return result
-        
-        print("正在分配说话人标签...")
-        try:
-            # 使用WhisperX的assign_word_speakers函数
-            result = whisperx.assign_word_speakers(diarize_segments, result)
-            
-            # 如果有说话人管理器，使用它来映射speaker ID到名称
-            if self.speaker_manager:
-                for segment in result["segments"]:
-                    if "speaker" in segment:
-                        original_speaker = segment["speaker"]
-                        mapped_name = self.speaker_manager.assign_speaker_name(original_speaker)
-                        segment["speaker"] = mapped_name
-            
-            print("✓ 说话人标签分配完成")
-            return result
-            
-        except Exception as e:
-            print(f"⚠ 说话人标签分配失败: {e}")
-            # 回退：为所有片段分配默认说话人
-            for segment in result["segments"]:
-                segment["speaker"] = "SPEAKER_00"
-            return result
     
     def format_time(self, seconds):
         """
@@ -295,15 +201,12 @@ class MeetingTranscriber:
         """
         return str(timedelta(seconds=int(seconds)))
     
-    def process_audio(self, audio_path, min_speakers=None, max_speakers=None, hf_token=None):
+    def process_audio(self, audio_path):
         """
         处理音频文件，生成带说话人标识的字幕
         
         Args:
             audio_path (str): 音频文件路径
-            min_speakers (int): 最小说话人数量
-            max_speakers (int): 最大说话人数量
-            hf_token (str): Hugging Face token
             
         Returns:
             dict: 处理结果
@@ -318,31 +221,24 @@ class MeetingTranscriber:
         # 2. 时间对齐
         result = self.align_transcription(result, audio_path)
         
-        # 3. 说话人分离
-        diarize_segments = self.diarize_speakers(
-            audio_path, 
-            min_speakers=min_speakers, 
-            max_speakers=max_speakers,
-            hf_token=hf_token
-        )
-        
-        # 4. 分配说话人标签
-        result = self.assign_speakers_to_segments(result, diarize_segments)
-        
-        # 5. 使用Resemblyzer增强说话人识别（如果启用）
+        # 3. 使用Resemblyzer进行说话人识别（如枟启用）
         if self.resemblyzer_recognizer:
-            print("正在使用Resemblyzer增强说话人识别...")
+            print("正在使用Resemblyzer进行说话人识别...")
             try:
                 enhanced_segments = self.resemblyzer_recognizer.enhance_speaker_identification(
                     result.get('segments', []), 
                     audio_path
                 )
                 result['segments'] = enhanced_segments
-                print("✓ Resemblyzer声纹识别增强完成")
+                print("✓ Resemblyzer声纹识别完成")
             except Exception as e:
-                print(f"⚠ Resemblyzer声纹识别增强失败: {e}")
+                print(f"⚠ Resemblyzer声纹识别失败: {e}")
+        else:
+            # 如果没有启用Resemblyzer，为所有片段分配默认说话人
+            for segment in result.get('segments', []):
+                segment['speaker'] = 'SPEAKER_00'
         
-        # 6. 生成最终结果
+        # 4. 生成最终结果
         final_result = {
             'audio_file': audio_path,
             'language': result.get('language', 'unknown'),
@@ -434,13 +330,10 @@ def main():
     parser.add_argument("-f", "--format", choices=["txt", "json", "srt"], 
                        default="srt", help="输出格式")
     parser.add_argument("-m", "--model", choices=["tiny", "base", "small", "medium", "large-v2", "large-v3"], 
-                       default="base", help="WhisperX模型大小")
+                       default="medium", help="WhisperX模型大小")
     parser.add_argument("-l", "--language", default="auto", help="语言代码 (auto为自动检测)")
-    parser.add_argument("--no-gpu", action="store_true", help="不使用GPU")
-    parser.add_argument("--min-speakers", type=int, help="最小说话人数量")
-    parser.add_argument("--max-speakers", type=int, help="最大说话人数量")
-    parser.add_argument("--hf-token", help="Hugging Face token (用于pyannote模型)")
-    parser.add_argument("--use-resemblyzer", action="store_true", help="启用声纹增强识别功能")
+    parser.add_argument("--gpu", action="store_true", help="使用GPU加速")
+    parser.add_argument("--no-resemblyzer", action="store_true", help="禁用声纹增强识别功能")
     
     args = parser.parse_args()
     
@@ -459,20 +352,15 @@ def main():
     # 创建处理器实例
     processor = MeetingTranscriber(
         model_size=args.model,
-        use_gpu=not args.no_gpu,
+        use_gpu=args.gpu,
         language=args.language,
-        use_resemblyzer=args.use_resemblyzer
+        use_resemblyzer=not args.no_resemblyzer
     )
     
     try:
         # 处理音频
         print("开始处理音频...")
-        result = processor.process_audio(
-            args.audio_file,
-            min_speakers=args.min_speakers,
-            max_speakers=args.max_speakers,
-            hf_token=args.hf_token
-        )
+        result = processor.process_audio(args.audio_file)
         
         # 保存结果
         processor.save_results(result, output_path, args.format)
