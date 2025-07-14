@@ -1,0 +1,75 @@
+# 音频文件（所有目录和子目录）
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.aac
+*.ogg
+*.wma
+*.aiff
+*.au
+
+# 视频文件
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.3gp
+*.wmv
+
+# 虚拟环境
+whisperx_env/
+*_env/
+venv/
+env/
+.env/
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 输出文件
+*.srt
+*.txt
+*.json
+output/
+results/
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+.cache/
