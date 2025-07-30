@@ -36,7 +36,21 @@ python meeting_transcription.py input.m4a \
     --output output.srt \
     --format srt \
     --model medium \
-    --language auto
+    --language auto \
+    --num-speakers 3
+```
+
+### 指定说话人数量
+
+```bash
+# 自动检测说话人数量（默认）
+python meeting_transcription.py input.m4a
+
+# 指定说话人数量为2
+python meeting_transcription.py input.m4a -n 2
+
+# 指定说话人数量为4
+python meeting_transcription.py input.m4a --num-speakers 4
 ```
 
 ### 启用 GPU 加速
@@ -52,6 +66,7 @@ python meeting_transcription.py input.m4a --gpu
 - `-f, --format`: 输出格式（txt/json/srt，默认：srt）
 - `-m, --model`: WhisperX 模型大小（tiny/base/small/medium/large-v2/large-v3，默认：medium）
 - `-l, --language`: 语言代码（默认：auto 自动检测）
+- `-n, --num-speakers`: 指定说话人数量（默认：auto 自动检测，或输入具体数字如2、3、4等）
 - `--gpu`: 启用 GPU 加速（默认使用 CPU）
 - `--no-resemblyzer`: 禁用声纹增强功能（默认启用）
 

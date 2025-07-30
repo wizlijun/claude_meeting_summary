@@ -31,7 +31,7 @@ except ImportError:
     print("警告: 会议声纹增强功能不可用")
 
 class MeetingTranscriber:
-    def __init__(self, model_size="base", use_gpu=False, language="auto", use_resemblyzer=False):
+    def __init__(self, model_size="base", use_gpu=False, language="auto", use_resemblyzer=False, num_speakers="auto"):
         """
         初始化会议录音转录系统
         
@@ -40,7 +40,12 @@ class MeetingTranscriber:
             use_gpu (bool): 是否使用GPU加速
             language (str): 语言代码，"auto"为自动检测
             use_resemblyzer (bool): 是否使用声纹增强功能
+            num_speakers (str|int): 说话人数量，"auto"为自动检测
         """
+        # 处理说话人数量参数
+        self.num_speakers = self._parse_num_speakers(num_speakers)
+        print(f"说话人数量设置: {self.num_speakers}")
+        
         # 设备选择
         if use_gpu:
             if torch.cuda.is_available():
@@ -103,6 +108,39 @@ class MeetingTranscriber:
                 self.resemblyzer_recognizer = None
         elif use_resemblyzer and not RESEMBLYZER_AVAILABLE:
             print("⚠ 声纹增强库不可用，无法启用声纹识别增强")
+    
+    def _parse_num_speakers(self, num_speakers):
+        """
+        解析说话人数量参数
+        
+        Args:
+            num_speakers (str|int): 说话人数量参数
+            
+        Returns:
+            str|int: 处理后的说话人数量参数
+        """
+        if isinstance(num_speakers, int):
+            if num_speakers < 1:
+                print("⚠ 说话人数量必须大于0，使用自动检测")
+                return "auto"
+            return num_speakers
+        
+        if isinstance(num_speakers, str):
+            if num_speakers.lower() == "auto":
+                return "auto"
+            
+            try:
+                num = int(num_speakers)
+                if num < 1:
+                    print("⚠ 说话人数量必须大于0，使用自动检测")
+                    return "auto"
+                return num
+            except ValueError:
+                print(f"⚠ 无效的说话人数量参数: {num_speakers}，使用自动检测")
+                return "auto"
+        
+        print(f"⚠ 无效的说话人数量参数类型: {type(num_speakers)}，使用自动检测")
+        return "auto"
     
     def load_align_model(self, language_code):
         """加载对齐模型"""
@@ -332,6 +370,7 @@ def main():
     parser.add_argument("-m", "--model", choices=["tiny", "base", "small", "medium", "large-v2", "large-v3"], 
                        default="medium", help="WhisperX模型大小")
     parser.add_argument("-l", "--language", default="auto", help="语言代码 (auto为自动检测)")
+    parser.add_argument("-n", "--num-speakers", default="auto", help="指定说话人数量 (auto为自动检测，或输入具体数字如2、3、4等)")
     parser.add_argument("--gpu", action="store_true", help="使用GPU加速")
     parser.add_argument("--no-resemblyzer", action="store_true", help="禁用声纹增强识别功能")
     
@@ -354,7 +393,8 @@ def main():
         model_size=args.model,
         use_gpu=args.gpu,
         language=args.language,
-        use_resemblyzer=not args.no_resemblyzer
+        use_resemblyzer=not args.no_resemblyzer,
+        num_speakers=args.num_speakers
     )
     
     try:
@@ -371,6 +411,7 @@ def main():
         print(f"\n统计信息:")
         print(f"- 语言: {result['language']}")
         print(f"- 片段数量: {len(result['segments'])}")
+        print(f"- 说话人数量设置: {processor.num_speakers}")
         
         # 显示说话人列表
         speakers = set(segment.get('speaker', 'Unknown') for segment in result['segments'])
