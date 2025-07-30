@@ -57,11 +57,31 @@ python meeting_transcription.py input.m4a --gpu
 
 ## 说话人管理
 
-### 添加说话人样本
+### 声纹管理工具
+
+本项目提供了便捷的声纹管理工具 `add_speaker.py`，支持以下功能：
+
+#### 查看当前声纹库
+```bash
+source whisperx_env/bin/activate && python add_speaker.py list
+```
+
+#### 添加新的说话人声纹
+```bash
+source whisperx_env/bin/activate && python add_speaker.py add <wav文件路径>
+```
+
+#### 扫描并重新加载所有声纹
+```bash
+source whisperx_env/bin/activate && python add_speaker.py scan
+```
+
+### 手动添加说话人样本
 
 1. 在 `speaker/` 目录下放置说话人的音频样本文件
 2. 文件名格式：`{说话人姓名}.wav`
 3. 建议每个样本长度 5-30 秒
+4. 运行 `python add_speaker.py scan` 重新加载声纹库
 
 示例目录结构：
 ```
@@ -69,8 +89,17 @@ speaker/
 ├── Jun.wav
 ├── Qi.wav
 ├── Tao.wav
-└── Dive.wav
+├── Dive.wav
+└── Xusw.wav
 ```
+
+### 声纹管理工具功能特点
+
+- ✅ 自动检测wav文件格式
+- ✅ 自动复制文件到speaker目录
+- ✅ 实时生成256维声纹特征
+- ✅ 显示声纹库统计信息
+- ✅ 支持重新加载无需重启程序
 
 ### 说话人映射
 

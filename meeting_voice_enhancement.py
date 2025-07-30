@@ -59,7 +59,7 @@ class MeetingVoiceEnhancer:
             speaker_name = wav_file.stem
             try:
                 # 加载和预处理音频
-                wav, sr = librosa.load(wav_file, sr=16000)
+                wav, sr = librosa.load(str(wav_file), sr=16000)
                 wav = preprocess_wav(wav)
                 
                 # 提取声纹嵌入向量
@@ -311,6 +311,62 @@ class MeetingVoiceEnhancer:
         """设置相似度阈值"""
         self.threshold = max(0.0, min(1.0, threshold))
         logger.info(f"相似度阈值已设置为: {self.threshold}")
+    
+    def reload_speaker_profiles(self):
+        """重新加载说话人声纹档案"""
+        print("🔄 正在重新加载声纹库...")
+        
+        # 清空现有声纹
+        self.speaker_embeddings.clear()
+        self.speaker_names.clear()
+        
+        # 重新加载
+        self._load_speaker_profiles()
+        
+        print(f"✅ 声纹库重新加载完成，包含 {len(self.speaker_embeddings)} 个说话人")
+        return len(self.speaker_embeddings)
+    
+    def add_speaker_from_file(self, wav_file_path: str) -> bool:
+        """
+        从文件添加单个说话人声纹
+        
+        Args:
+            wav_file_path: wav文件路径
+            
+        Returns:
+            是否添加成功
+        """
+        wav_path = Path(wav_file_path)
+        
+        if not wav_path.exists():
+            logger.error(f"文件不存在: {wav_file_path}")
+            return False
+        
+        if wav_path.suffix.lower() != '.wav':
+            logger.error(f"只支持wav文件: {wav_file_path}")
+            return False
+        
+        speaker_name = wav_path.stem
+        
+        try:
+            # 加载和预处理音频
+            wav, sr = librosa.load(str(wav_path), sr=16000)
+            wav = preprocess_wav(wav)
+            
+            # 提取声纹嵌入向量
+            embedding = self.voice_encoder.embed_utterance(wav)
+            
+            # 添加到声纹库
+            self.speaker_embeddings[speaker_name] = embedding
+            if speaker_name not in self.speaker_names:
+                self.speaker_names.append(speaker_name)
+            
+            logger.info(f"成功添加说话人声纹: {speaker_name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"添加说话人 {speaker_name} 失败: {e}")
+            return False
 
 
 def demo():
